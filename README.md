@@ -1,27 +1,85 @@
 # JARVIS OS
 
-A personal AI operating system inspired by JARVIS/FRIDAY.
+A personal AI operating system built incrementally as a real software project.
 
-## Vision
+## Current milestone: v0.2.0 — LLM Brain
 
-JARVIS OS will evolve from a simple conversational assistant into a personal AI system with memory, tools, agents, automation, research, and voice capabilities.
+JARVIS currently provides an interactive CLI backed by an LLM provider abstraction and an OpenAI implementation.
 
-## Development philosophy
+```text
+User
+  ↓
+CLI
+  ↓
+Orchestrator
+  ↓
+LLM Provider
+  ↓
+OpenAI Responses API
+  ↓
+JARVIS response
+```
 
-Build incrementally. Every capability should be understandable, testable, observable, and documented before adding the next layer.
+## Setup
+
+Requires Python 3.11+.
+
+```bash
+python -m venv .venv
+```
+
+Activate the environment and install dependencies:
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+Create `.env` from `.env.example` and add your OpenAI API key.
+
+```bash
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-5.6-luna
+LLM_API_KEY=your_api_key_here
+```
+
+Run JARVIS:
+
+```bash
+python -m app.main
+```
+
+Or, after installing the package:
+
+```bash
+jarvis
+```
+
+## Development
+
+Run tests with:
+
+```bash
+pytest
+```
 
 ## Roadmap
 
-- [ ] v0.1 — Project foundation
-- [ ] v0.2 — LLM conversation loop
-- [ ] v0.3 — Tool registry and first tools
-- [ ] v0.4 — Persistent memory
-- [ ] v0.5 — Web research agent
-- [ ] v0.6 — Personal knowledge/RAG
-- [ ] v0.7 — Voice interface
-- [ ] v0.8 — Multi-agent orchestration
-- [ ] v0.9 — Personal automation
-- [ ] v1.0 — Personal AI OS
+- [x] Project foundation
+- [x] LLM provider abstraction
+- [x] OpenAI integration
+- [x] Interactive CLI
+- [x] Basic unit test
+- [ ] Conversation history
+- [ ] Tool registry and function calling
+- [ ] Persistent memory
+- [ ] Web research
+- [ ] Personal knowledge/RAG
+- [ ] Voice interface
+- [ ] Agent workflows
+- [ ] Desktop/web UI
+- [ ] Observability and evaluations
+- [ ] Permission and safety layer
 
 ## Security
 
