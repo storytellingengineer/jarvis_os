@@ -2,9 +2,9 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v0.2.0 — LLM Brain
+## Current milestone: v0.3.0 — Conversation History
 
-JARVIS currently provides an interactive CLI backed by an LLM provider abstraction and an OpenAI implementation.
+JARVIS provides an interactive CLI backed by an LLM provider abstraction, an OpenAI implementation, and in-memory conversation history for the current session.
 
 ```text
 User
@@ -13,11 +13,15 @@ CLI
   ↓
 Orchestrator
   ↓
+Conversation History
+  ↓
 LLM Provider
   ↓
 OpenAI Responses API
   ↓
 JARVIS response
+  ↓
+Conversation History
 ```
 
 ## Setup
@@ -70,7 +74,7 @@ pytest
 - [x] OpenAI integration
 - [x] Interactive CLI
 - [x] Basic unit test
-- [ ] Conversation history
+- [x] In-memory conversation history
 - [ ] Tool registry and function calling
 - [ ] Persistent memory
 - [ ] Web research
