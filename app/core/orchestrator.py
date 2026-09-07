@@ -1,20 +1,32 @@
 """Central coordinator for JARVIS requests."""
 
+from app.core.history import ConversationHistory
 from app.llm.provider import LLMProvider
 
 
 SYSTEM_PROMPT = """You are JARVIS, a personal AI operating system.
 Be concise, accurate, and practical. When you are unsure, say so.
-For now, you only answer the user's request; tools and memory will be added later.
+Use the conversation history to maintain context and answer follow-up questions naturally.
 """
 
 
 class Orchestrator:
     """Route user input to the configured AI capability."""
 
-    def __init__(self, llm: LLMProvider) -> None:
+    def __init__(
+        self, llm: LLMProvider, history: ConversationHistory | None = None
+    ) -> None:
         self._llm = llm
+        self._history = history or ConversationHistory()
 
     def respond(self, user_input: str) -> str:
-        prompt = f"{SYSTEM_PROMPT}\nUser: {user_input}\nJARVIS:"
-        return self._llm.generate(prompt)
+        """Generate a response using the current conversation context."""
+        self._history.add("User", user_input)
+        prompt = f"{SYSTEM_PROMPT}\n\nConversation:\n{self._history.as_prompt()}\nJARVIS:"
+        response = self._llm.generate(prompt)
+        self._history.add("JARVIS", response)
+        return response
+
+    def clear_history(self) -> None:
+        """Clear the current session's conversation history."""
+        self._history.clear()
