@@ -1,12 +1,14 @@
 """Central coordinator for JARVIS requests."""
 
 from app.core.history import ConversationHistory
+from app.core.tools import ToolRegistry
 from app.llm.provider import LLMProvider
 
 
 SYSTEM_PROMPT = """You are JARVIS, a personal AI operating system.
 Be concise, accurate, and practical. When you are unsure, say so.
 Use the conversation history to maintain context and answer follow-up questions naturally.
+Use available tools when they are appropriate instead of doing tool work manually.
 """
 
 
@@ -14,16 +16,28 @@ class Orchestrator:
     """Route user input to the configured AI capability."""
 
     def __init__(
-        self, llm: LLMProvider, history: ConversationHistory | None = None
+        self,
+        llm: LLMProvider,
+        history: ConversationHistory | None = None,
+        tools: ToolRegistry | None = None,
     ) -> None:
         self._llm = llm
         self._history = history or ConversationHistory()
+        self._tools = tools or ToolRegistry()
 
     def respond(self, user_input: str) -> str:
-        """Generate a response using the current conversation context."""
+        """Generate a response using conversation context and registered tools."""
         self._history.add("User", user_input)
         prompt = f"{SYSTEM_PROMPT}\n\nConversation:\n{self._history.as_prompt()}\nJARVIS:"
-        response = self._llm.generate(prompt)
+
+        generate_with_tools = getattr(self._llm, "generate_with_tools", None)
+        if generate_with_tools and len(self._tools):
+            response = generate_with_tools(
+                prompt, self._tools.schemas(), self._tools.execute
+            )
+        else:
+            response = self._llm.generate(prompt)
+
         self._history.add("JARVIS", response)
         return response
 
