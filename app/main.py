@@ -1,6 +1,8 @@
 """JARVIS OS command-line entry point."""
 
 from app.config import settings
+from app.core.history import ConversationHistory
+from app.core.memory import PersistentMemory
 from app.core.orchestrator import Orchestrator
 from app.core.tools import Tool, ToolRegistry
 from app.llm.openai_provider import OpenAIProvider
@@ -39,10 +41,13 @@ def main() -> None:
         print(f"Configuration error: {exc}")
         return
 
-    jarvis = Orchestrator(llm, tools=build_tools())
+    memory = PersistentMemory()
+    history = ConversationHistory(store=memory)
+    jarvis = Orchestrator(llm, history=history, tools=build_tools())
 
-    print("JARVIS OS v0.4.0")
+    print("JARVIS OS v0.5.0")
     print(f"Model: {settings.llm_model}")
+    print("Memory: persistent (SQLite)")
     print("Tools: calculator")
     print("Type 'exit' or 'quit' to close.\n")
 
