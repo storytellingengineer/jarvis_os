@@ -1,5 +1,8 @@
 """OpenAI Responses API integration."""
 
+from collections.abc import Callable
+from typing import Any
+
 from openai import OpenAI
 
 from app.config import Settings
@@ -23,3 +26,44 @@ class OpenAIProvider:
             input=prompt,
         )
         return response.output_text
+
+    def generate_with_tools(
+        self,
+        prompt: str,
+        tools: list[dict[str, Any]],
+        executor: Callable[[str, dict[str, Any]], Any],
+    ) -> str:
+        """Generate a response and execute requested function tools."""
+        response = self._client.responses.create(
+            model=self._model,
+            input=prompt,
+            tools=tools,
+        )
+
+        while True:
+            function_calls = [
+                item for item in response.output if item.type == "function_call"
+            ]
+            if not function_calls:
+                return response.output_text
+
+            tool_outputs = []
+            for call in function_calls:
+                import json
+
+                arguments = json.loads(call.arguments)
+                result = executor(call.name, arguments)
+                tool_outputs.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": call.call_id,
+                        "output": str(result),
+                    }
+                )
+
+            response = self._client.responses.create(
+                model=self._model,
+                previous_response_id=response.id,
+                input=tool_outputs,
+                tools=tools,
+            )
