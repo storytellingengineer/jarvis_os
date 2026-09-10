@@ -2,7 +2,33 @@
 
 from app.config import settings
 from app.core.orchestrator import Orchestrator
+from app.core.tools import Tool, ToolRegistry
 from app.llm.openai_provider import OpenAIProvider
+from app.tools.calculator import calculate
+
+
+def build_tools() -> ToolRegistry:
+    """Build the default JARVIS toolset."""
+    registry = ToolRegistry()
+    registry.register(
+        Tool(
+            name="calculator",
+            description="Evaluate a basic arithmetic expression.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "expression": {
+                        "type": "string",
+                        "description": "A basic arithmetic expression such as (25 * 4) + 10.",
+                    }
+                },
+                "required": ["expression"],
+                "additionalProperties": False,
+            },
+            function=calculate,
+        )
+    )
+    return registry
 
 
 def main() -> None:
@@ -13,10 +39,11 @@ def main() -> None:
         print(f"Configuration error: {exc}")
         return
 
-    jarvis = Orchestrator(llm)
+    jarvis = Orchestrator(llm, tools=build_tools())
 
-    print("JARVIS OS v0.2.0")
+    print("JARVIS OS v0.4.0")
     print(f"Model: {settings.llm_model}")
+    print("Tools: calculator")
     print("Type 'exit' or 'quit' to close.\n")
 
     while True:
