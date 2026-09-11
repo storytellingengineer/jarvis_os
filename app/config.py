@@ -15,6 +15,7 @@ class Settings:
     llm_provider: str = os.getenv("LLM_PROVIDER", "openai")
     llm_model: str = os.getenv("LLM_MODEL", "gpt-5.6-luna")
     llm_api_key: str = os.getenv("LLM_API_KEY", "")
+    memory_path: str = os.getenv("JARVIS_MEMORY_PATH", "data/jarvis.db")
 
 
 settings = Settings()
