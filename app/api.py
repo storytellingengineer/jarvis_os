@@ -8,13 +8,16 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.core.history import ConversationHistory
+from app.core.memory import PersistentMemory
 from app.core.orchestrator import Orchestrator
 from app.core.tools import Tool, ToolRegistry
 from app.llm.openai_provider import OpenAIProvider
 from app.tools.calculator import calculate
 
-app = FastAPI(title="JARVIS OS", version="0.8.0")
+app = FastAPI(title="JARVIS OS", version="0.9.0")
 STATIC_INDEX = Path(__file__).resolve().parent.parent / "static" / "index.html"
+MEMORY_PATH = Path(settings.memory_path)
 
 
 class ChatRequest(BaseModel):
@@ -28,6 +31,7 @@ class ChatResponse(BaseModel):
 @dataclass
 class JarvisRuntime:
     orchestrator: Orchestrator
+    memory: PersistentMemory
 
 
 def build_tools() -> ToolRegistry:
@@ -58,7 +62,13 @@ def build_runtime() -> JarvisRuntime:
         llm = OpenAIProvider(settings)
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
-    return JarvisRuntime(Orchestrator(llm, tools=build_tools()))
+
+    memory = PersistentMemory(MEMORY_PATH)
+    history = ConversationHistory(store=memory)
+    return JarvisRuntime(
+        orchestrator=Orchestrator(llm, history=history, tools=build_tools()),
+        memory=memory,
+    )
 
 
 runtime: JarvisRuntime | None = None
@@ -81,7 +91,7 @@ def index() -> FileResponse:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "jarvis-os", "version": "0.8.0"}
+    return {"status": "ok", "service": "jarvis-os", "version": "0.9.0"}
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -91,3 +101,9 @@ def chat(request: ChatRequest) -> ChatResponse:
         return ChatResponse(response=jarvis.orchestrator.respond(request.message))
     except Exception as exc:  # noqa: BLE001 - API boundary
         raise HTTPException(status_code=500, detail="JARVIS could not process the request.") from exc
+
+
+@app.delete("/memory", status_code=204)
+def clear_memory() -> None:
+    """Clear all local JARVIS conversation memory."""
+    get_runtime().orchestrator.clear_history()
