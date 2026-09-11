@@ -2,9 +2,9 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v0.6.0 — FastAPI Service
+## Current milestone: v0.9.0 — Persistent API Memory
 
-JARVIS now exposes the same orchestrator used by the CLI through a lightweight HTTP API. The service keeps the existing conversation history and tool-calling architecture behind a stable `/chat` endpoint.
+JARVIS now exposes its orchestrator through a FastAPI service and persists conversation history in SQLite. The CLI and API use the same memory abstraction, so local conversations survive process restarts.
 
 ```text
 Client
@@ -12,7 +12,7 @@ Client
 FastAPI
   ↓
 Orchestrator
-  ├── Conversation History
+  ├── Persistent Conversation History
   └── Tool Registry
         ↓
      OpenAI Responses API
@@ -45,6 +45,12 @@ Response:
 {"response": "110"}
 ```
 
+Clear local conversation memory:
+
+```text
+DELETE /memory
+```
+
 ## Built-in tools
 
 ### Calculator
@@ -72,6 +78,7 @@ Create `.env` from `.env.example` and add your OpenAI API key.
 LLM_PROVIDER=openai
 LLM_MODEL=gpt-5.6-luna
 LLM_API_KEY=your_api_key_here
+JARVIS_MEMORY_PATH=data/jarvis.db
 ```
 
 Run the CLI:
@@ -107,16 +114,17 @@ pytest
 - [x] Tool registry and function calling
 - [x] Calculator tool
 - [x] Persistent memory
+- [x] FastAPI service
+- [x] Web interface
+- [x] Persistent memory for API
 - [ ] Web research
 - [ ] Personal knowledge/RAG
 - [ ] Voice interface
 - [ ] Agent workflows
-- [x] FastAPI service
-- [ ] Deployment
-- [ ] Desktop/web UI
 - [ ] Observability and evaluations
 - [ ] Permission and safety layer
+- [ ] Production deployment hardening
 
 ## Security
 
-Secrets are stored locally in `.env` and must never be committed to Git.
+Secrets are stored locally in `.env` and must never be committed to Git. The `/memory` endpoint is intended for the private personal deployment and should be protected before exposing JARVIS publicly.
