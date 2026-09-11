@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JARVIS OS</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+    main { width: min(900px, 100%); margin: 0 auto; padding: 28px 18px 32px; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; }
+    h1 { margin: 0; font-size: 22px; letter-spacing: .04em; }
+    .status { color: #8b949e; font-size: 13px; }
+    .status::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3fb950; margin-right: 7px; }
+    #chat { min-height: 62vh; border: 1px solid #30363d; border-radius: 12px; padding: 18px; background: #161b22; overflow-y: auto; }
+    .message { max-width: 78%; margin: 0 0 16px; padding: 11px 13px; border-radius: 10px; white-space: pre-wrap; line-height: 1.5; }
+    .user { margin-left: auto; background: #21262d; border: 1px solid #30363d; }
+    .jarvis { background: transparent; color: #c9d1d9; }
+    .label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .08em; }
+    form { display: flex; gap: 10px; margin-top: 12px; }
+    input { flex: 1; min-width: 0; border: 1px solid #30363d; border-radius: 9px; background: #0d1117; color: #e6edf3; padding: 13px 14px; outline: none; }
+    input:focus { border-color: #58a6ff; }
+    button { border: 1px solid #30363d; border-radius: 9px; background: #21262d; color: #e6edf3; padding: 0 18px; cursor: pointer; }
+    button:hover { background: #30363d; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .hint { color: #6e7681; font-size: 12px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>JARVIS OS</h1>
+      <div class="status" id="status">ready</div>
+    </header>
+    <section id="chat" aria-live="polite"></section>
+    <form id="form">
+      <input id="message" autocomplete="off" placeholder="Talk to JARVIS..." required maxlength="10000" />
+      <button id="send" type="submit">Send</button>
+    </form>
+    <div class="hint">Personal interface · v0.8 · Conversation is held by the current API process.</div>
+  </main>
+  <script>
+    const chat = document.getElementById('chat');
+    const form = document.getElementById('form');
+    const input = document.getElementById('message');
+    const send = document.getElementById('send');
+    const status = document.getElementById('status');
+
+    function addMessage(role, text) {
+      const el = document.createElement('div');
+      el.className = `message ${role}`;
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = role === 'user' ? 'You' : 'JARVIS';
+      el.append(label, document.createTextNode(text));
+      chat.appendChild(el);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+      addMessage('user', message);
+      input.value = '';
+      input.focus();
+      send.disabled = true;
+      status.textContent = 'thinking';
+      try {
+        const response = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Request failed');
+        addMessage('jarvis', data.response);
+        status.textContent = 'ready';
+      } catch (error) {
+        addMessage('jarvis', `Error: ${error.message}`);
+        status.textContent = 'error';
+      } finally {
+        send.disabled = false;
+      }
+    });
+
+    addMessage('jarvis', 'Online. What would you like me to do?');
+  </script>
+</body>
+</html>
