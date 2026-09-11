@@ -1,8 +1,10 @@
-"""HTTP API for the JARVIS assistant."""
+"""HTTP API and web interface for JARVIS."""
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -11,7 +13,8 @@ from app.core.tools import Tool, ToolRegistry
 from app.llm.openai_provider import OpenAIProvider
 from app.tools.calculator import calculate
 
-app = FastAPI(title="JARVIS OS", version="0.6.0")
+app = FastAPI(title="JARVIS OS", version="0.8.0")
+STATIC_INDEX = Path(__file__).resolve().parent.parent / "static" / "index.html"
 
 
 class ChatRequest(BaseModel):
@@ -71,9 +74,14 @@ def get_runtime() -> JarvisRuntime:
     return runtime
 
 
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    return FileResponse(STATIC_INDEX)
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "jarvis-os"}
+    return {"status": "ok", "service": "jarvis-os", "version": "0.8.0"}
 
 
 @app.post("/chat", response_model=ChatResponse)
