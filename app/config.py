@@ -16,6 +16,7 @@ class Settings:
     llm_model: str = os.getenv("LLM_MODEL", "gpt-5.6-luna")
     llm_api_key: str = os.getenv("LLM_API_KEY", "")
     memory_path: str = os.getenv("JARVIS_MEMORY_PATH", "data/jarvis.db")
+    web_search_enabled: bool = os.getenv("JARVIS_WEB_SEARCH", "true").lower() in {"1", "true", "yes", "on"}
 
 
 settings = Settings()
