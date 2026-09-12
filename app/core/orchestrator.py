@@ -10,6 +10,7 @@ SYSTEM_PROMPT = """You are JARVIS, a personal AI operating system.
 Be concise, accurate, and practical. When you are unsure, say so.
 Use the conversation history to maintain context and answer follow-up questions naturally.
 Use available tools when they are appropriate instead of doing tool work manually.
+For current, recent, or time-sensitive information, use web search when available.
 Never claim that a tool was executed unless the tool result was actually returned.
 """
 
@@ -31,6 +32,7 @@ class Orchestrator:
 
     def respond(self, user_input: str) -> str:
         """Generate a response using conversation context and guarded tools."""
+        self._policy.reset()
         self._history.add("User", user_input)
         prompt = f"{SYSTEM_PROMPT}\n\nConversation:\n{self._history.as_prompt()}\nJARVIS:"
 
