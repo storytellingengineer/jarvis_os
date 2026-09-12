@@ -18,6 +18,10 @@ class ToolExecutionPolicy:
         if self.max_tool_calls < 1:
             raise ValueError("max_tool_calls must be at least 1")
 
+    def reset(self) -> None:
+        """Reset the tool-call budget for a new user request."""
+        self._calls = 0
+
     def execute(
         self,
         registry: ToolRegistry,
