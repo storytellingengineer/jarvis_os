@@ -1,5 +1,6 @@
 """OpenAI Responses API integration."""
 
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -19,6 +20,7 @@ class OpenAIProvider:
 
         self._client = OpenAI(api_key=settings.llm_api_key)
         self._model = settings.llm_model
+        self._web_search_enabled = settings.web_search_enabled
 
     def generate(self, prompt: str) -> str:
         response = self._client.responses.create(
@@ -34,10 +36,14 @@ class OpenAIProvider:
         executor: Callable[[str, dict[str, Any]], Any],
     ) -> str:
         """Generate a response and execute requested function tools."""
+        request_tools = list(tools)
+        if self._web_search_enabled:
+            request_tools.append({"type": "web_search"})
+
         response = self._client.responses.create(
             model=self._model,
             input=prompt,
-            tools=tools,
+            tools=request_tools,
         )
 
         while True:
@@ -49,8 +55,6 @@ class OpenAIProvider:
 
             tool_outputs = []
             for call in function_calls:
-                import json
-
                 arguments = json.loads(call.arguments)
                 result = executor(call.name, arguments)
                 tool_outputs.append(
@@ -65,5 +69,5 @@ class OpenAIProvider:
                 model=self._model,
                 previous_response_id=response.id,
                 input=tool_outputs,
-                tools=tools,
+                tools=request_tools,
             )
