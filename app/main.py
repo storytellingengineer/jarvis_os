@@ -45,10 +45,10 @@ def main() -> None:
     history = ConversationHistory(store=memory)
     jarvis = Orchestrator(llm, history=history, tools=build_tools())
 
-    print("JARVIS OS v0.5.0")
+    print("JARVIS OS v1.0.0")
     print(f"Model: {settings.llm_model}")
     print("Memory: persistent (SQLite)")
-    print("Tools: calculator")
+    print("Tools: calculator + web search")
     print("Type 'exit' or 'quit' to close.\n")
 
     while True:
