@@ -2,65 +2,42 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v1.0.0 — Web Research + Agent Safety
+## Current milestone: v1.1.0 — Personal Knowledge
 
-JARVIS now combines a FastAPI service, persistent SQLite conversation memory, guarded custom tools, and native OpenAI web search. Current and time-sensitive questions can be researched without adding a separate search API key.
+JARVIS combines a FastAPI service, persistent SQLite conversation memory, guarded custom tools, native OpenAI web search, and a local SQLite FTS5 knowledge base. Local documents can be imported and retrieved through the same tool-calling loop.
 
 ```text
 Client
   ↓
-FastAPI
+FastAPI / CLI
   ↓
 Orchestrator
   ├── Persistent Conversation History
   ├── Tool Registry + Execution Policy
+  ├── Local Knowledge Search
   └── Web Search
         ↓
    OpenAI Responses API
-        ↓
-   Tool / Search Result
-        ↓
-    JARVIS response
-```
-
-## API
-
-Health check:
-
-```text
-GET /health
-```
-
-Chat:
-
-```text
-POST /chat
-Content-Type: application/json
-
-{"message": "Calculate (25 * 4) + 10"}
-```
-
-Response:
-
-```json
-{"response": "110"}
-```
-
-Clear local conversation memory:
-
-```text
-DELETE /memory
 ```
 
 ## Capabilities
 
 ### Calculator
-
-JARVIS can invoke a safe arithmetic calculator through the LLM tool-calling interface. The calculator parses arithmetic expressions rather than executing arbitrary Python code.
+Safe arithmetic evaluation through an LLM function tool.
 
 ### Web Research
+Native OpenAI web search for current, recent, or time-sensitive questions. Disable with `JARVIS_WEB_SEARCH=false`.
 
-JARVIS can use OpenAI's native web search capability when a request needs current, recent, or time-sensitive information. Search is enabled by default and can be disabled with `JARVIS_WEB_SEARCH=false`.
+### Personal Knowledge / RAG
+JARVIS can search imported UTF-8 text or Markdown files using SQLite FTS5. This keeps the first RAG layer local and dependency-light.
+
+Import a document:
+
+```bash
+python -m app.knowledge_cli path/to/document.md
+```
+
+The default knowledge database is `data/knowledge.db`; override it with `JARVIS_KNOWLEDGE_PATH`.
 
 ## Setup
 
@@ -68,22 +45,18 @@ Requires Python 3.11+.
 
 ```bash
 python -m venv .venv
-```
-
-Activate the environment and install dependencies:
-
-```bash
 pip install -r requirements.txt
 pip install -e .
 ```
 
-Create `.env` from `.env.example` and add your OpenAI API key.
+Create `.env` from `.env.example`:
 
-```bash
+```text
 LLM_PROVIDER=openai
 LLM_MODEL=gpt-5.6-luna
 LLM_API_KEY=your_api_key_here
 JARVIS_MEMORY_PATH=data/jarvis.db
+JARVIS_KNOWLEDGE_PATH=data/knowledge.db
 JARVIS_WEB_SEARCH=true
 ```
 
@@ -99,10 +72,6 @@ Or run the API:
 uvicorn app.api:app --reload
 ```
 
-The interactive API documentation is then available at `/docs`.
-
-## Development
-
 Run tests with:
 
 ```bash
@@ -116,16 +85,16 @@ pytest
 - [x] OpenAI integration
 - [x] Interactive CLI
 - [x] Basic unit test
-- [x] In-memory conversation history
+- [x] Conversation history
 - [x] Tool registry and function calling
 - [x] Calculator tool
 - [x] Persistent memory
 - [x] FastAPI service
 - [x] Web interface
-- [x] Persistent memory for API
 - [x] Tool execution policy
 - [x] Native web research
-- [ ] Personal knowledge/RAG
+- [x] Local personal knowledge retrieval
+- [ ] Semantic/vector retrieval
 - [ ] Voice interface
 - [ ] Agent workflows
 - [ ] Observability and evaluations
@@ -133,4 +102,4 @@ pytest
 
 ## Security
 
-Secrets are stored locally in `.env` and must never be committed to Git. The `/memory` endpoint is intended for the private personal deployment and should be protected before exposing JARVIS publicly. Custom tools are guarded by an allowlist and per-request execution budget.
+Secrets stay in local `.env` and must never be committed. The `/memory` endpoint is intended for a private deployment and should be protected before public exposure. Custom tools are guarded by an allowlist and per-request execution budget.
