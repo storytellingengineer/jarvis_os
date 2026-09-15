@@ -2,38 +2,45 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v1.2.0 — Real RAG
+## Current milestone: v1.3.0 — Agent Runtime
 
-JARVIS combines a FastAPI service, persistent SQLite conversation memory, guarded custom tools, native OpenAI web search, and a local RAG pipeline. Imported text/Markdown is chunked, embedded, stored locally in SQLite, and retrieved through hybrid semantic + keyword search with source citations.
+JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, and a planner/executor/verifier agent runtime. v1.3 introduces explicit task state, multi-step tool execution through the existing Responses tool loop, deterministic verification, and a bounded tool-call budget.
 
 ```text
-Client
-  ↓
-FastAPI / CLI
-  ↓
-Orchestrator
-  ├── Persistent Conversation History
-  ├── Tool Registry + Execution Policy
-  ├── Hybrid Local RAG
-  │     ├── Chunking
-  │     ├── OpenAI Embeddings
-  │     ├── Semantic Retrieval
-  │     └── SQLite FTS5 Keyword Retrieval
-  └── Web Search
-        ↓
-   OpenAI Responses API
+User Task
+   ↓
+Planner
+   ↓
+Task State
+   ↓
+Executor ─────→ Tools / RAG / Web Search
+   ↓
+Verifier
+   ↓
+Verified Response
 ```
 
-## Capabilities
+## v1.3 Agent Runtime
 
-### Calculator
-Safe arithmetic evaluation through an LLM function tool.
+The runtime is implemented in `app/core/agent.py` and models each task as a state machine:
 
-### Web Research
-Native OpenAI web search for current, recent, or time-sensitive questions. Disable with `JARVIS_WEB_SEARCH=false`.
+- **Planner** creates a concise action plan before execution.
+- **Executor** uses the existing LLM tool-calling loop and `ToolExecutionPolicy`.
+- **TaskState** records plan, status, execution steps, and errors.
+- **Verifier** rejects empty results and marks successful runs as verified.
+- **Execution budget** remains bounded by the existing per-request tool-call policy.
 
-### Personal Knowledge / RAG
-JARVIS imports UTF-8 text or Markdown files into a local SQLite RAG index. Documents are split into overlapping chunks, embedded with `text-embedding-3-small` by default, and retrieved using hybrid semantic + keyword ranking. Results include source and chunk citations such as `[notes.md#chunk-2]`.
+A developer CLI is available for exercising the runtime directly:
+
+```bash
+python -m app.agent_cli
+```
+
+The main conversational CLI continues to use the stable v1.2 orchestration path while the v1.3 runtime is exposed separately for validation. This keeps the new agent loop testable before making it the default request path.
+
+## v1.2 RAG
+
+Imported UTF-8 text or Markdown is chunked, embedded with `text-embedding-3-small` by default, stored locally in SQLite, and retrieved through hybrid semantic + SQLite FTS5 keyword ranking. Results include source/chunk citations such as `[notes.md#chunk-2]`.
 
 Import a document:
 
@@ -41,7 +48,7 @@ Import a document:
 python -m app.knowledge_cli path/to/document.md
 ```
 
-RAG configuration:
+Configuration:
 
 ```text
 JARVIS_KNOWLEDGE_PATH=data/knowledge.db
@@ -49,8 +56,6 @@ JARVIS_EMBEDDING_MODEL=text-embedding-3-small
 JARVIS_RAG_CHUNK_SIZE=500
 JARVIS_RAG_CHUNK_OVERLAP=75
 ```
-
-The current implementation intentionally keeps the vector layer local and dependency-light: embeddings are stored in SQLite and cosine similarity is computed in-process. This is appropriate for a personal corpus and gives JARVIS a clean path toward a dedicated vector index later.
 
 ## Setup
 
@@ -62,24 +67,18 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-Create `.env` from `.env.example`:
+Create `.env` from `.env.example` and set `LLM_API_KEY`.
 
-```text
-LLM_PROVIDER=openai
-LLM_MODEL=gpt-5.6-luna
-LLM_API_KEY=your_api_key_here
-JARVIS_MEMORY_PATH=data/jarvis.db
-JARVIS_KNOWLEDGE_PATH=data/knowledge.db
-JARVIS_EMBEDDING_MODEL=text-embedding-3-small
-JARVIS_RAG_CHUNK_SIZE=500
-JARVIS_RAG_CHUNK_OVERLAP=75
-JARVIS_WEB_SEARCH=true
-```
-
-Run the CLI:
+Run the main CLI:
 
 ```bash
 python -m app.main
+```
+
+Run the v1.3 agent CLI:
+
+```bash
+python -m app.agent_cli
 ```
 
 Or run the API:
@@ -100,7 +99,6 @@ pytest
 - [x] LLM provider abstraction
 - [x] OpenAI integration
 - [x] Interactive CLI
-- [x] Basic unit test
 - [x] Conversation history
 - [x] Tool registry and function calling
 - [x] Calculator tool
@@ -114,10 +112,14 @@ pytest
 - [x] Semantic/vector retrieval
 - [x] Hybrid keyword + semantic retrieval
 - [x] Source/chunk citations
+- [x] Agent runtime foundation
+- [x] Planner / executor / verifier state flow
+- [x] Bounded execution budget
 - [ ] PDF/DOCX ingestion
 - [ ] Retrieval evaluation suite
-- [ ] Agent workflows
-- [ ] Observability and evaluations
+- [ ] Agent failure recovery strategies
+- [ ] Agent observability and evaluations
+- [ ] Memory 2.0
 - [ ] Voice interface
 - [ ] Production deployment hardening
 
