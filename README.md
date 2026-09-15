@@ -2,9 +2,9 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v1.1.0 — Personal Knowledge
+## Current milestone: v1.2.0 — Real RAG
 
-JARVIS combines a FastAPI service, persistent SQLite conversation memory, guarded custom tools, native OpenAI web search, and a local SQLite FTS5 knowledge base. Local documents can be imported and retrieved through the same tool-calling loop.
+JARVIS combines a FastAPI service, persistent SQLite conversation memory, guarded custom tools, native OpenAI web search, and a local RAG pipeline. Imported text/Markdown is chunked, embedded, stored locally in SQLite, and retrieved through hybrid semantic + keyword search with source citations.
 
 ```text
 Client
@@ -14,7 +14,11 @@ FastAPI / CLI
 Orchestrator
   ├── Persistent Conversation History
   ├── Tool Registry + Execution Policy
-  ├── Local Knowledge Search
+  ├── Hybrid Local RAG
+  │     ├── Chunking
+  │     ├── OpenAI Embeddings
+  │     ├── Semantic Retrieval
+  │     └── SQLite FTS5 Keyword Retrieval
   └── Web Search
         ↓
    OpenAI Responses API
@@ -29,7 +33,7 @@ Safe arithmetic evaluation through an LLM function tool.
 Native OpenAI web search for current, recent, or time-sensitive questions. Disable with `JARVIS_WEB_SEARCH=false`.
 
 ### Personal Knowledge / RAG
-JARVIS can search imported UTF-8 text or Markdown files using SQLite FTS5. This keeps the first RAG layer local and dependency-light.
+JARVIS imports UTF-8 text or Markdown files into a local SQLite RAG index. Documents are split into overlapping chunks, embedded with `text-embedding-3-small` by default, and retrieved using hybrid semantic + keyword ranking. Results include source and chunk citations such as `[notes.md#chunk-2]`.
 
 Import a document:
 
@@ -37,7 +41,16 @@ Import a document:
 python -m app.knowledge_cli path/to/document.md
 ```
 
-The default knowledge database is `data/knowledge.db`; override it with `JARVIS_KNOWLEDGE_PATH`.
+RAG configuration:
+
+```text
+JARVIS_KNOWLEDGE_PATH=data/knowledge.db
+JARVIS_EMBEDDING_MODEL=text-embedding-3-small
+JARVIS_RAG_CHUNK_SIZE=500
+JARVIS_RAG_CHUNK_OVERLAP=75
+```
+
+The current implementation intentionally keeps the vector layer local and dependency-light: embeddings are stored in SQLite and cosine similarity is computed in-process. This is appropriate for a personal corpus and gives JARVIS a clean path toward a dedicated vector index later.
 
 ## Setup
 
@@ -57,6 +70,9 @@ LLM_MODEL=gpt-5.6-luna
 LLM_API_KEY=your_api_key_here
 JARVIS_MEMORY_PATH=data/jarvis.db
 JARVIS_KNOWLEDGE_PATH=data/knowledge.db
+JARVIS_EMBEDDING_MODEL=text-embedding-3-small
+JARVIS_RAG_CHUNK_SIZE=500
+JARVIS_RAG_CHUNK_OVERLAP=75
 JARVIS_WEB_SEARCH=true
 ```
 
@@ -94,10 +110,15 @@ pytest
 - [x] Tool execution policy
 - [x] Native web research
 - [x] Local personal knowledge retrieval
-- [ ] Semantic/vector retrieval
-- [ ] Voice interface
+- [x] Document chunking
+- [x] Semantic/vector retrieval
+- [x] Hybrid keyword + semantic retrieval
+- [x] Source/chunk citations
+- [ ] PDF/DOCX ingestion
+- [ ] Retrieval evaluation suite
 - [ ] Agent workflows
 - [ ] Observability and evaluations
+- [ ] Voice interface
 - [ ] Production deployment hardening
 
 ## Security
