@@ -11,7 +11,7 @@ from app.tools.knowledge import search_knowledge
 def build_tools() -> ToolRegistry:
     registry = ToolRegistry()
     registry.register(Tool(name="calculator", description="Evaluate a basic arithmetic expression.", parameters={"type":"object","properties":{"expression":{"type":"string"}},"required":["expression"],"additionalProperties":False}, function=calculate))
-    registry.register(Tool(name="search_knowledge", description="Search the user's local personal knowledge base for information from imported documents.", parameters={"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":10}},"required":["query"],"additionalProperties":False}, function=search_knowledge))
+    registry.register(Tool(name="search_knowledge", description="Search the user's local personal knowledge base for information from imported documents using semantic and keyword retrieval.", parameters={"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":10}},"required":["query"],"additionalProperties":False}, function=search_knowledge))
     return registry
 
 
@@ -24,10 +24,10 @@ def main() -> None:
     memory = PersistentMemory()
     history = ConversationHistory(store=memory)
     jarvis = Orchestrator(llm, history=history, tools=build_tools())
-    print("JARVIS OS v1.1.0")
+    print("JARVIS OS v1.2.0")
     print(f"Model: {settings.llm_model}")
     print("Memory: persistent (SQLite)")
-    print("Tools: calculator + local knowledge + web search")
+    print("Tools: calculator + hybrid RAG + web search")
     print("Type 'exit' or 'quit' to close.\n")
     while True:
         try:
