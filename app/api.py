@@ -16,7 +16,7 @@ from app.llm.openai_provider import OpenAIProvider
 from app.tools.calculator import calculate
 from app.tools.knowledge import search_knowledge
 
-app = FastAPI(title="JARVIS OS", version="1.1.0")
+app = FastAPI(title="JARVIS OS", version="1.2.0")
 STATIC_INDEX = Path(__file__).resolve().parent.parent / "static" / "index.html"
 MEMORY_PATH = Path(settings.memory_path)
 
@@ -38,7 +38,7 @@ class JarvisRuntime:
 def build_tools() -> ToolRegistry:
     registry = ToolRegistry()
     registry.register(Tool(name="calculator", description="Evaluate a basic arithmetic expression.", parameters={"type":"object","properties":{"expression":{"type":"string"}},"required":["expression"],"additionalProperties":False}, function=calculate))
-    registry.register(Tool(name="search_knowledge", description="Search the user's local personal knowledge base for information from imported documents.", parameters={"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":10}},"required":["query"],"additionalProperties":False}, function=search_knowledge))
+    registry.register(Tool(name="search_knowledge", description="Search the user's local personal knowledge base for information from imported documents using semantic and keyword retrieval.", parameters={"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":10}},"required":["query"],"additionalProperties":False}, function=search_knowledge))
     return registry
 
 
@@ -72,7 +72,7 @@ def index() -> FileResponse:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "jarvis-os", "version": "1.1.0"}
+    return {"status": "ok", "service": "jarvis-os", "version": "1.2.0"}
 
 
 @app.post("/chat", response_model=ChatResponse)
