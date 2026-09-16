@@ -2,25 +2,42 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v1.4.0 — Agent Observability
+## Current milestone: v1.5.0 — Agent Evaluation + Failure Recovery
 
-JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, and a planner/executor/verifier agent runtime. v1.4 adds structured execution traces for operational visibility without logging model chain-of-thought or sensitive request payloads.
+JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, and a planner/executor/verifier agent runtime. v1.5 adds deterministic agent evaluation and bounded recovery for selected execution failures.
 
 ```text
 User Task
    ↓
 Planner
    ↓
-Task State
-   ↓
 Executor ─────→ Tools / RAG / Web Search
    ↓
-Verifier
+Verifier + Evaluation
    ↓
-Structured Trace
-   ↓
-Verified Response
+   ├── PASS → Verified Response
+   └── FAIL
+        ↓
+   Failure Classifier
+        ↓
+   Recovery Policy
+        ↓
+   Bounded Retry
+        ↓
+   Verifier + Evaluation
 ```
+
+## v1.5 Agent Evaluation + Failure Recovery
+
+The evaluation/recovery layer lives in `app/core/evaluation.py` and `app/core/agent.py`.
+
+- **AgentEvaluator** checks deterministic execution properties: task, plan, and result presence.
+- **EvaluationResult** exposes pass/fail, a normalized score, individual criteria, and a failure reason.
+- **FailureClassifier** separates transient failures, policy violations, empty results, exhausted budgets, and terminal failures.
+- **RecoveryPolicy** permits only bounded retries for transient and empty-result failures.
+- Recovery resets the per-request tool budget before a retry and records recovery events in the existing structured trace.
+- Policy violations and exhausted tool budgets are never automatically retried.
+- Evaluation does not log prompts, tool arguments, tool results, or model chain-of-thought.
 
 ## v1.4 Agent Observability
 
@@ -33,6 +50,8 @@ The observability layer lives in `app/core/observability.py` and records bounded
 - tool-call counts
 - response size
 - request duration and final status
+- recovery decisions and attempts
+- evaluation score
 
 Traces are emitted as JSON through the `jarvis.observability` logger. Tool arguments, user prompts, tool results, API keys, and model chain-of-thought are intentionally not logged.
 
@@ -42,8 +61,8 @@ The runtime is implemented in `app/core/agent.py` and models each task as a stat
 
 - **Planner** creates a concise action plan before execution.
 - **Executor** uses the existing LLM tool-calling loop and `ToolExecutionPolicy`.
-- **TaskState** records plan, status, execution steps, and errors.
-- **Verifier** rejects empty results and marks successful runs as verified.
+- **TaskState** records plan, status, execution steps, errors, evaluation score, and recovery attempts.
+- **Verifier** rejects empty or otherwise structurally invalid results and marks successful runs as verified.
 - **Execution budget** remains bounded by the existing per-request tool-call policy.
 
 A developer CLI is available for exercising the runtime directly:
@@ -132,10 +151,10 @@ pytest
 - [x] Planner / executor / verifier state flow
 - [x] Bounded execution budget
 - [x] Structured agent observability
+- [x] Deterministic agent evaluation
+- [x] Bounded agent failure recovery
 - [ ] PDF/DOCX ingestion
 - [ ] Retrieval evaluation suite
-- [ ] Agent failure recovery strategies
-- [ ] Agent evaluations
 - [ ] Memory 2.0
 - [ ] Voice interface
 - [ ] Production deployment hardening
