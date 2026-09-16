@@ -16,7 +16,7 @@ from app.llm.openai_provider import OpenAIProvider
 from app.tools.calculator import calculate
 from app.tools.knowledge import search_knowledge
 
-app = FastAPI(title="JARVIS OS", version="1.2.0")
+app = FastAPI(title="JARVIS OS", version="1.4.0")
 STATIC_INDEX = Path(__file__).resolve().parent.parent / "static" / "index.html"
 MEMORY_PATH = Path(settings.memory_path)
 
@@ -72,7 +72,7 @@ def index() -> FileResponse:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "jarvis-os", "version": "1.2.0"}
+    return {"status": "ok", "service": "jarvis-os", "version": "1.4.0"}
 
 
 @app.post("/chat", response_model=ChatResponse)
