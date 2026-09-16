@@ -2,9 +2,9 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v1.3.0 — Agent Runtime
+## Current milestone: v1.4.0 — Agent Observability
 
-JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, and a planner/executor/verifier agent runtime. v1.3 introduces explicit task state, multi-step tool execution through the existing Responses tool loop, deterministic verification, and a bounded tool-call budget.
+JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, and a planner/executor/verifier agent runtime. v1.4 adds structured execution traces for operational visibility without logging model chain-of-thought or sensitive request payloads.
 
 ```text
 User Task
@@ -17,8 +17,24 @@ Executor ─────→ Tools / RAG / Web Search
    ↓
 Verifier
    ↓
+Structured Trace
+   ↓
 Verified Response
 ```
+
+## v1.4 Agent Observability
+
+The observability layer lives in `app/core/observability.py` and records bounded operational events for each request:
+
+- unique trace ID
+- operation and model metadata
+- planning / execution / verification lifecycle
+- tool start, completion, failure, and latency
+- tool-call counts
+- response size
+- request duration and final status
+
+Traces are emitted as JSON through the `jarvis.observability` logger. Tool arguments, user prompts, tool results, API keys, and model chain-of-thought are intentionally not logged.
 
 ## v1.3 Agent Runtime
 
@@ -36,7 +52,7 @@ A developer CLI is available for exercising the runtime directly:
 python -m app.agent_cli
 ```
 
-The main conversational CLI continues to use the stable v1.2 orchestration path while the v1.3 runtime is exposed separately for validation. This keeps the new agent loop testable before making it the default request path.
+The main conversational CLI continues to use the stable orchestration path while the agent runtime remains separately testable.
 
 ## v1.2 RAG
 
@@ -75,7 +91,7 @@ Run the main CLI:
 python -m app.main
 ```
 
-Run the v1.3 agent CLI:
+Run the agent CLI:
 
 ```bash
 python -m app.agent_cli
@@ -115,14 +131,15 @@ pytest
 - [x] Agent runtime foundation
 - [x] Planner / executor / verifier state flow
 - [x] Bounded execution budget
+- [x] Structured agent observability
 - [ ] PDF/DOCX ingestion
 - [ ] Retrieval evaluation suite
 - [ ] Agent failure recovery strategies
-- [ ] Agent observability and evaluations
+- [ ] Agent evaluations
 - [ ] Memory 2.0
 - [ ] Voice interface
 - [ ] Production deployment hardening
 
 ## Security
 
-Secrets stay in local `.env` and must never be committed. The `/memory` endpoint is intended for a private deployment and should be protected before public exposure. Custom tools are guarded by an allowlist and per-request execution budget.
+Secrets stay in local `.env` and must never be committed. The `/memory` endpoint is intended for a private deployment and should be protected before public exposure. Custom tools are guarded by an allowlist and per-request execution budget. Observability records operational metadata only and intentionally excludes prompts, tool arguments, tool results, and secrets.
