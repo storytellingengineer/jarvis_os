@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from app.core.observability import observability
+
 
 @dataclass
 class TaskState:
@@ -60,26 +62,50 @@ class AgentRuntime:
         context: str,
         executor: Callable[[str, dict[str, Any]], Any],
     ) -> TaskState:
+        """Execute one bounded agent task and emit operational trace events."""
+        trace = observability.start(
+            "agent.run",
+            input_length=len(task),
+            tool_count=len(self._tools),
+        )
         state = TaskState(task=task)
-        state.plan = self._plan(task)
-        state.steps.append("plan")
-        state.status = "executing"
+        self._policy.reset()
 
-        generate_with_tools = getattr(self._llm, "generate_with_tools", None)
-        if generate_with_tools and len(self._tools):
-            execution_prompt = (
-                f"{context}\n\nAgent execution plan:\n{state.plan}\n\n"
-                "Execute the plan using available tools when appropriate. "
-                "You may perform multiple tool calls, but stay within the tool execution policy. "
-                "Return the final answer only after completing the necessary actions."
-            )
-            state.result = generate_with_tools(
-                execution_prompt,
-                self._tools.schemas(),
-                executor,
-            )
-        else:
-            state.result = self._llm.generate(f"{context}\n\nPlan:\n{state.plan}")
+        try:
+            trace.event("planning_started")
+            state.plan = self._plan(task)
+            state.steps.append("plan")
+            trace.event("planning_finished", plan_length=len(state.plan))
+            state.status = "executing"
 
-        state.steps.append("execute")
-        return self._verifier.verify(state)
+            generate_with_tools = getattr(self._llm, "generate_with_tools", None)
+            if generate_with_tools and len(self._tools):
+                execution_prompt = (
+                    f"{context}\n\nAgent execution plan:\n{state.plan}\n\n"
+                    "Execute the plan using available tools when appropriate. "
+                    "You may perform multiple tool calls, but stay within the tool execution policy. "
+                    "Return the final answer only after completing the necessary actions."
+                )
+                trace.event("execution_started", mode="tools")
+                state.result = generate_with_tools(
+                    execution_prompt,
+                    self._tools.schemas(),
+                    executor,
+                )
+            else:
+                trace.event("execution_started", mode="text")
+                state.result = self._llm.generate(f"{context}\n\nPlan:\n{state.plan}")
+
+            state.steps.append("execute")
+            trace.event("execution_finished", tool_calls=self._policy.calls_used)
+            trace.event("verification_started")
+            state = self._verifier.verify(state)
+            trace.event("verification_finished", status=state.status)
+            trace.finish("completed")
+            return state
+        except Exception as exc:
+            state.status = "failed"
+            if not state.errors or state.errors[-1] != str(exc):
+                state.errors.append(str(exc))
+            trace.finish("failed", type(exc).__name__)
+            raise
