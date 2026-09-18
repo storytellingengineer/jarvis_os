@@ -5,7 +5,6 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -20,6 +19,7 @@ class DocumentMetadata:
 class KnowledgeStore:
     def __init__(self, db_path: str | Path = "jarvis_knowledge.db") -> None:
         self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
@@ -42,28 +42,21 @@ class KnowledgeStore:
                 )
                 """
             )
-
-            # Migrate databases created before metadata support was introduced.
             existing_columns = {
                 row[1] for row in db.execute("PRAGMA table_info(documents)").fetchall()
             }
-            metadata_columns = {
+            for column_name, column_type in {
                 "document_id": "TEXT",
                 "file_type": "TEXT",
                 "size_bytes": "INTEGER",
                 "ingested_at": "TEXT",
-            }
-            for column_name, column_type in metadata_columns.items():
+            }.items():
                 if column_name not in existing_columns:
                     db.execute(
                         f"ALTER TABLE documents ADD COLUMN {column_name} {column_type}"
                     )
-
             db.execute(
-                """
-                CREATE VIRTUAL TABLE IF NOT EXISTS document_search
-                USING fts5(source, content)
-                """
+                "CREATE VIRTUAL TABLE IF NOT EXISTS document_search USING fts5(source, content)"
             )
 
     @staticmethod
@@ -80,10 +73,11 @@ class KnowledgeStore:
         ingested_at: str | None = None,
     ) -> DocumentMetadata:
         source = source.strip()
+        content = content.strip()
         if not source:
-            raise ValueError("source must not be empty")
-        if not content.strip():
-            raise ValueError("content must not be empty")
+            raise ValueError("Knowledge source cannot be empty.")
+        if not content:
+            raise ValueError("Knowledge content cannot be empty.")
 
         document_id = self.stable_document_id(content)
         timestamp = ingested_at or datetime.now(timezone.utc).isoformat()
@@ -107,7 +101,9 @@ class KnowledgeStore:
 
         return DocumentMetadata(document_id, source, file_type, byte_size, timestamp)
 
-    def ingest_file(self, path: str | Path) -> DocumentMetadata:
+    def ingest_file(
+        self, path: str | Path, *, source: str | None = None
+    ) -> DocumentMetadata:
         file_path = Path(path)
         suffix = file_path.suffix.lower()
         if suffix in {".txt", ".md"}:
@@ -117,20 +113,18 @@ class KnowledgeStore:
                 from pypdf import PdfReader
             except ImportError as exc:
                 raise RuntimeError("PDF ingestion requires pypdf") from exc
-            reader = PdfReader(str(file_path))
-            content = "\n".join(page.extract_text() or "" for page in reader.pages)
+            content = "\n".join(page.extract_text() or "" for page in PdfReader(str(file_path)).pages)
         elif suffix == ".docx":
             try:
                 from docx import Document
             except ImportError as exc:
                 raise RuntimeError("DOCX ingestion requires python-docx") from exc
-            document = Document(str(file_path))
-            content = "\n".join(paragraph.text for paragraph in document.paragraphs)
+            content = "\n".join(paragraph.text for paragraph in Document(str(file_path)).paragraphs)
         else:
-            raise ValueError(f"Unsupported file type: {suffix or '<none>'}")
+            raise ValueError(f"Unsupported knowledge file type: {suffix or '<none>'}")
 
         return self.add_document(
-            str(file_path),
+            source or str(file_path),
             content,
             file_type=suffix,
             size_bytes=file_path.stat().st_size,
@@ -139,31 +133,17 @@ class KnowledgeStore:
     def get_metadata(self, source: str) -> DocumentMetadata | None:
         with self._connect() as db:
             row = db.execute(
-                """
-                SELECT document_id, source, file_type, size_bytes, ingested_at
-                FROM documents WHERE source = ?
-                """,
+                "SELECT document_id, source, file_type, size_bytes, ingested_at FROM documents WHERE source = ?",
                 (source,),
             ).fetchone()
         if row is None:
             return None
-        return DocumentMetadata(
-            document_id=row["document_id"],
-            source=row["source"],
-            file_type=row["file_type"],
-            size_bytes=row["size_bytes"],
-            ingested_at=row["ingested_at"],
-        )
+        return DocumentMetadata(**dict(row))
 
     def search(self, query: str, limit: int = 5) -> list[dict[str, str]]:
         with self._connect() as db:
             rows = db.execute(
-                """
-                SELECT source, content
-                FROM document_search
-                WHERE document_search MATCH ?
-                LIMIT ?
-                """,
+                "SELECT source, content FROM document_search WHERE document_search MATCH ? LIMIT ?",
                 (query, limit),
             ).fetchall()
         return [dict(row) for row in rows]
