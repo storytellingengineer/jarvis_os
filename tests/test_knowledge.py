@@ -1,4 +1,5 @@
 from pathlib import Path
+import sqlite3
 
 import pytest
 
@@ -33,3 +34,25 @@ def test_ingest_rejects_unsupported_files(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Unsupported knowledge file type"):
         store.ingest_file(source)
+
+
+def test_existing_database_is_migrated(tmp_path: Path) -> None:
+    db_path = tmp_path / "legacy.db"
+    with sqlite3.connect(db_path) as db:
+        db.execute(
+            "CREATE TABLE documents ("
+            "id INTEGER PRIMARY KEY, "
+            "source TEXT NOT NULL UNIQUE, "
+            "content TEXT NOT NULL"
+            ")"
+        )
+        db.execute(
+            "CREATE VIRTUAL TABLE document_search USING fts5(source, content)"
+        )
+
+    store = KnowledgeStore(db_path)
+    metadata = store.add_document("legacy.txt", "Legacy knowledge remains available.")
+    persisted = store.get_metadata("legacy.txt")
+
+    assert persisted == metadata
+    assert persisted.file_type == "text"
