@@ -10,8 +10,8 @@ def test_knowledge_store_add_and_search(tmp_path: Path) -> None:
     store = KnowledgeStore(tmp_path / "knowledge.db")
     store.add_document("notes.md", "JARVIS should prioritize evaluation and observability.")
     result = store.search("evaluation observability")
-    assert "notes.md" in result
-    assert "observability" in result
+    assert any(row["source"] == "notes.md" for row in result)
+    assert any("observability" in row["content"] for row in result)
 
 
 def test_ingest_text_file_persists_stable_metadata(tmp_path: Path) -> None:
