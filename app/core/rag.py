@@ -100,13 +100,13 @@ class RAGStore:
                 "INSERT INTO rag_documents(source) VALUES (?)", (source,)
             ).lastrowid
             for chunk, embedding in zip(chunks, embeddings):
-                db.execute(
+                chunk_id = db.execute(
                     "INSERT INTO rag_chunks(document_id, chunk_index, content, embedding) VALUES (?, ?, ?, ?)",
                     (document_id, chunk.chunk_index, chunk.content, json.dumps(list(embedding))),
-                )
+                ).lastrowid
                 db.execute(
                     "INSERT INTO rag_search(rowid, source, content) VALUES (?, ?, ?)",
-                    (db.execute("SELECT last_insert_rowid()").fetchone()[0], source, chunk.content),
+                    (chunk_id, source, chunk.content),
                 )
 
     def _keyword_ranks(self, query: str) -> dict[int, int]:

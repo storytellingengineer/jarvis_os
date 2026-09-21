@@ -2,30 +2,37 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v1.5.0 — Agent Evaluation + Failure Recovery
+## Current milestone: v1.6.0 — Multi-Agent Orchestration Foundation
 
-JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, and a planner/executor/verifier agent runtime. v1.5 adds deterministic agent evaluation and bounded recovery for selected execution failures.
+JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, and an evolving planner/executor/verifier runtime. The v1.6 milestone introduces a composable multi-agent foundation: a supervisor routes requests to specialist agents, while shared context carries routes, artifacts, and operational events.
 
 ```text
 User Task
    ↓
-Planner
+Supervisor / Router
    ↓
-Executor ─────→ Tools / RAG / Web Search
+   ├── Knowledge Agent → Local RAG
+   ├── Coding Agent → Code / Tests
+   ├── Research Agent → Web / Synthesis
+   └── General Agent
    ↓
-Verifier + Evaluation
+Verifier / Evaluation
    ↓
-   ├── PASS → Verified Response
-   └── FAIL
-        ↓
-   Failure Classifier
-        ↓
-   Recovery Policy
-        ↓
-   Bounded Retry
-        ↓
-   Verifier + Evaluation
+Verified Response + Observability
 ```
+
+## v1.6 Multi-Agent Foundation
+
+The multi-agent primitives live in `app/core/multiagent.py`.
+
+- **AgentContext** carries the task, selected route, artifacts, and execution events.
+- **AgentResult** provides a consistent result contract and optional next-agent routing.
+- **SupervisorAgent** performs transparent deterministic routing for knowledge, coding, research, and general requests.
+- **SpecialistAgent** adapts a handler into a registered specialist agent.
+- **MultiAgentRuntime** executes supervisor routing and invokes the matching specialist when one is registered.
+- Unknown routes are handled safely without executing an unregistered agent.
+
+This is the orchestration foundation, not the final autonomous system. Future milestones will replace simple routing rules with model-assisted planning, add dedicated Knowledge/Coding/Research/Execution agents, and connect verification, memory, approvals, and observability across the workflow.
 
 ## v1.5 Agent Evaluation + Failure Recovery
 
@@ -153,6 +160,12 @@ pytest
 - [x] Structured agent observability
 - [x] Deterministic agent evaluation
 - [x] Bounded agent failure recovery
+- [x] Multi-agent context and agent contract foundation
+- [x] Deterministic supervisor routing
+- [ ] Model-assisted supervisor planning
+- [ ] Dedicated Knowledge, Coding, Research, and Execution agents
+- [ ] Agent-to-agent handoffs and shared memory
+- [ ] Cross-agent verification and evaluation
 - [ ] PDF/DOCX ingestion
 - [ ] Retrieval evaluation suite
 - [ ] Memory 2.0
