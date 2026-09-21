@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 import re
-from typing import Iterable
 
 
 _CITATION_PATTERN = re.compile(r"\[([^\]#]+)#chunk-(\d+)\]")
@@ -58,3 +58,12 @@ def aggregate_scores(scores: Iterable[RetrievalScore]) -> dict[str, float]:
         "hit_rate": sum(score.hit for score in values) / len(values),
         "mrr": sum(score.reciprocal_rank for score in values) / len(values),
     }
+
+
+def evaluate_cases(
+    cases: Iterable[RetrievalCase],
+    retrieve: Callable[[str], str],
+) -> dict[str, float]:
+    """Run a retrieval callable against cases and return aggregate metrics."""
+    scores = [score_retrieval(case, retrieve(case.query)) for case in cases]
+    return aggregate_scores(scores)
