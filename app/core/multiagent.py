@@ -113,3 +113,19 @@ class MultiAgentRuntime:
         if self._verifier is not None:
             self._verifier.run(context, result)
         return context
+
+
+def build_demo_runtime() -> MultiAgentRuntime:
+    """Build a safe, offline runtime for local smoke testing.
+
+    Handlers describe the next action and intentionally perform no external
+    side effects. Real tool-backed handlers can be injected later.
+    """
+
+    agents = {
+        "knowledge": SpecialistAgent("knowledge", lambda context: f"Knowledge task queued: {context.task}"),
+        "coding": SpecialistAgent("coding", lambda context: f"Coding task queued: {context.task}"),
+        "research": SpecialistAgent("research", lambda context: f"Research task queued: {context.task}"),
+        "general": SpecialistAgent("general", lambda context: f"General task queued: {context.task}"),
+    }
+    return MultiAgentRuntime(agents, verifier=VerifierAgent())
