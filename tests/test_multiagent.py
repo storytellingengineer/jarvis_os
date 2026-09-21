@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.multiagent import MultiAgentRuntime, SpecialistAgent
+from app.core.multiagent import MultiAgentRuntime, SpecialistAgent, VerifierAgent
 
 
 def test_supervisor_routes_knowledge_request() -> None:
@@ -40,3 +40,25 @@ def test_unknown_route_is_safe() -> None:
 def test_empty_task_is_rejected() -> None:
     with pytest.raises(ValueError, match="Task must not be empty"):
         MultiAgentRuntime({}).run("   ")
+
+
+def test_verifier_approves_non_empty_specialist_output() -> None:
+    runtime = MultiAgentRuntime(
+        {"coding": SpecialistAgent("coding", lambda context: "implemented")},
+        verifier=VerifierAgent(),
+    )
+
+    context = runtime.run("Implement this function")
+
+    assert context.artifacts["verification"] == "approved"
+    assert context.events[-1] == "verifier:approved"
+
+
+def test_verifier_rejects_empty_specialist_output() -> None:
+    runtime = MultiAgentRuntime(
+        {"coding": SpecialistAgent("coding", lambda context: "")},
+        verifier=VerifierAgent(),
+    )
+
+    with pytest.raises(RuntimeError, match="Verifier rejected"):
+        runtime.run("Implement this function")
