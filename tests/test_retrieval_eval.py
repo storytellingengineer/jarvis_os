@@ -1,6 +1,7 @@
 from app.core.retrieval_eval import (
     RetrievalCase,
     aggregate_scores,
+    evaluate_cases,
     extract_sources,
     score_retrieval,
 )
@@ -39,3 +40,19 @@ def test_aggregate_scores_returns_hit_rate_and_mrr() -> None:
     ]
 
     assert aggregate_scores(scores) == {"hit_rate": 0.5, "mrr": 0.5}
+
+
+def test_evaluate_cases_runs_retriever_and_aggregates_scores() -> None:
+    cases = [
+        RetrievalCase("reset password", frozenset({"faq.md"})),
+        RetrievalCase("install app", frozenset({"guide.md"})),
+    ]
+    responses = {
+        "reset password": "[faq.md#chunk-0]\ntext",
+        "install app": "[other.md#chunk-0]\ntext\n\n[guide.md#chunk-1]\ntext",
+    }
+
+    assert evaluate_cases(cases, responses.__getitem__) == {
+        "hit_rate": 1.0,
+        "mrr": 0.75,
+    }
