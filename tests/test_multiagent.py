@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.multiagent import MultiAgentRuntime, SpecialistAgent, VerifierAgent
+from app.core.multiagent import MultiAgentRuntime, SpecialistAgent, VerifierAgent, build_demo_runtime
 
 
 def test_supervisor_routes_knowledge_request() -> None:
@@ -62,3 +62,19 @@ def test_verifier_rejects_empty_specialist_output() -> None:
 
     with pytest.raises(RuntimeError, match="Verifier rejected"):
         runtime.run("Implement this function")
+
+
+def test_demo_runtime_supports_all_routes_offline() -> None:
+    runtime = build_demo_runtime()
+
+    for task, route in (
+        ("Explain my document", "knowledge"),
+        ("Implement a function", "coding"),
+        ("Research the latest RAG methods", "research"),
+        ("Tell me a joke", "general"),
+    ):
+        context = runtime.run(task)
+        assert context.route == route
+        assert context.artifacts[route].startswith(route.capitalize())
+        assert context.artifacts["verification"] == "approved"
+        assert context.events[-1] == "verifier:approved"
