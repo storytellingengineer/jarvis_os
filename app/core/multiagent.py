@@ -70,12 +70,35 @@ class SpecialistAgent:
         return AgentResult(self.name, output)
 
 
-class MultiAgentRuntime:
-    """Execute supervisor routing followed by a registered specialist."""
+class VerifierAgent:
+    """Validate specialist output and record the verification decision."""
 
-    def __init__(self, agents: dict[str, Agent], supervisor: Agent | None = None) -> None:
+    name = "verifier"
+
+    def __init__(self, validator: Callable[[AgentContext, AgentResult], bool] | None = None) -> None:
+        self._validator = validator or (lambda context, result: bool(result.output.strip()))
+
+    def run(self, context: AgentContext, result: AgentResult) -> AgentResult:
+        if not self._validator(context, result):
+            context.events.append("verifier:rejected")
+            raise RuntimeError(f"Verifier rejected output from {result.agent}")
+        context.events.append("verifier:approved")
+        context.artifacts["verification"] = "approved"
+        return AgentResult(self.name, "Output verified")
+
+
+class MultiAgentRuntime:
+    """Execute supervisor routing, a specialist, and an optional verifier."""
+
+    def __init__(
+        self,
+        agents: dict[str, Agent],
+        supervisor: Agent | None = None,
+        verifier: VerifierAgent | None = None,
+    ) -> None:
         self._agents = dict(agents)
         self._supervisor = supervisor or SupervisorAgent()
+        self._verifier = verifier
 
     def run(self, task: str) -> AgentContext:
         if not task.strip():
@@ -86,5 +109,7 @@ class MultiAgentRuntime:
         if specialist is None:
             context.events.append("runtime:no_specialist")
             return context
-        specialist.run(context)
+        result = specialist.run(context)
+        if self._verifier is not None:
+            self._verifier.run(context, result)
         return context
