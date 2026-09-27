@@ -22,6 +22,7 @@ documents = [
 
 [project.scripts]
 jarvis = "app.main:main"
+jarvis-knowledge = "app.knowledge_cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
