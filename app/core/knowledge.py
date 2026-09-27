@@ -16,6 +16,39 @@ class DocumentMetadata:
     ingested_at: str
 
 
+def extract_file(path: str | Path) -> tuple[str, str, int]:
+    """Extract supported document text without mutating the knowledge store."""
+    file_path = Path(path)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Knowledge file not found: {file_path}")
+
+    suffix = file_path.suffix.lower()
+    if suffix in {".txt", ".md"}:
+        content = file_path.read_text(encoding="utf-8")
+    elif suffix == ".pdf":
+        try:
+            from pypdf import PdfReader
+        except ImportError as exc:
+            raise RuntimeError(
+                "PDF ingestion requires the optional 'documents' dependencies. "
+                "Install with: pip install -e '.[documents]'"
+            ) from exc
+        content = "\n".join(page.extract_text() or "" for page in PdfReader(str(file_path)).pages)
+    elif suffix == ".docx":
+        try:
+            from docx import Document
+        except ImportError as exc:
+            raise RuntimeError(
+                "DOCX ingestion requires the optional 'documents' dependencies. "
+                "Install with: pip install -e '.[documents]'"
+            ) from exc
+        content = "\n".join(paragraph.text for paragraph in Document(str(file_path)).paragraphs)
+    else:
+        raise ValueError(f"Unsupported knowledge file type: {suffix or '<none>'}")
+
+    return content, suffix, file_path.stat().st_size
+
+
 class KnowledgeStore:
     def __init__(self, db_path: str | Path = "jarvis_knowledge.db") -> None:
         self.db_path = Path(db_path)
@@ -104,30 +137,12 @@ class KnowledgeStore:
     def ingest_file(
         self, path: str | Path, *, source: str | None = None
     ) -> DocumentMetadata:
-        file_path = Path(path)
-        suffix = file_path.suffix.lower()
-        if suffix in {".txt", ".md"}:
-            content = file_path.read_text(encoding="utf-8")
-        elif suffix == ".pdf":
-            try:
-                from pypdf import PdfReader
-            except ImportError as exc:
-                raise RuntimeError("PDF ingestion requires pypdf") from exc
-            content = "\n".join(page.extract_text() or "" for page in PdfReader(str(file_path)).pages)
-        elif suffix == ".docx":
-            try:
-                from docx import Document
-            except ImportError as exc:
-                raise RuntimeError("DOCX ingestion requires python-docx") from exc
-            content = "\n".join(paragraph.text for paragraph in Document(str(file_path)).paragraphs)
-        else:
-            raise ValueError(f"Unsupported knowledge file type: {suffix or '<none>'}")
-
+        content, file_type, size_bytes = extract_file(path)
         return self.add_document(
-            source or str(file_path),
+            source or str(path),
             content,
-            file_type=suffix,
-            size_bytes=file_path.stat().st_size,
+            file_type=file_type,
+            size_bytes=size_bytes,
         )
 
     def get_metadata(self, source: str) -> DocumentMetadata | None:
