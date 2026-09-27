@@ -24,3 +24,21 @@ def test_rag_store_returns_cited_chunks(tmp_path: Path) -> None:
     result = store.search("retrieval evaluation", [1.0, 0.0], limit=1)
     assert "[project.md#chunk-0]" in result
     assert "retrieval groundedness" in result
+
+
+def test_replace_document_removes_stale_fts_entries(tmp_path: Path) -> None:
+    store = RAGStore(tmp_path / "knowledge.db")
+    store.replace_document(
+        "guide.md",
+        [Chunk("guide.md", 0, "Legacy onboarding instructions")],
+        [[1.0, 0.0]],
+    )
+    store.replace_document(
+        "guide.md",
+        [Chunk("guide.md", 0, "Updated deployment instructions")],
+        [[1.0, 0.0]],
+    )
+
+    result = store.search("onboarding", [1.0, 0.0], limit=5)
+    assert "Legacy onboarding" not in result
+    assert "No matching local knowledge was found." not in result
