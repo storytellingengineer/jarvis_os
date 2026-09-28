@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+from app.core.evaluation import AgentEvaluator
 from app.core.history import ConversationHistory
 from app.core.observability import observability
 from app.core.policy import ToolExecutionPolicy
@@ -34,6 +35,7 @@ class Orchestrator:
         self._history = history or ConversationHistory()
         self._tools = tools or ToolRegistry()
         self._policy = policy or ToolExecutionPolicy()
+        self._evaluator = AgentEvaluator()
 
     def respond(self, user_input: str) -> str:
         """Generate a response using conversation context and guarded tools."""
@@ -83,6 +85,14 @@ class Orchestrator:
                 response = self._llm.generate(prompt)
 
             self._history.add("JARVIS", response)
+            evaluation = self._evaluator.evaluate(user_input, prompt, response)
+            trace.event(
+                "evaluation_completed",
+                passed=evaluation.passed,
+                score=evaluation.score,
+                criteria=evaluation.criteria,
+                reason=evaluation.reason,
+            )
             trace.event(
                 "response_ready",
                 output_length=len(response),
