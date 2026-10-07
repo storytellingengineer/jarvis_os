@@ -80,7 +80,7 @@ class AgentRuntime:
         trace: Any,
     ) -> None:
         generate_with_tools = getattr(self._llm, "generate_with_tools", None)
-        if generate_with_tools and len(self._tools):
+        if generate_with_tools is not None:
             execution_prompt = (
                 f"{context}\n\nAgent execution plan:\n{state.plan}\n\n"
                 "Execute the plan using available tools when appropriate. "
