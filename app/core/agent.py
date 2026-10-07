@@ -67,11 +67,8 @@ class AgentRuntime:
     def _plan(self, task: str) -> str:
         prompt = (
             "You are the planning stage of JARVIS. Create a short execution plan for the user request. "
-            "List only the actions needed, including tools that may be useful. Do not answer the request.
-
-"
-            f"User request:
-{task}"
+            "List only the actions needed, including tools that may be useful. Do not answer the request.\n\n"
+            f"User request:\n{task}"
         )
         return self._llm.generate(prompt).strip()
 
@@ -85,12 +82,7 @@ class AgentRuntime:
         generate_with_tools = getattr(self._llm, "generate_with_tools", None)
         if generate_with_tools and len(self._tools):
             execution_prompt = (
-                f"{context}
-
-Agent execution plan:
-{state.plan}
-
-"
+                f"{context}\n\nAgent execution plan:\n{state.plan}\n\n"
                 "Execute the plan using available tools when appropriate. "
                 "You may perform multiple tool calls, but stay within the tool execution policy. "
                 "Return the final answer only after completing the necessary actions."
@@ -103,10 +95,7 @@ Agent execution plan:
             )
         else:
             trace.event("execution_started", mode="text", attempt=state.recovery_attempts + 1)
-            state.result = self._llm.generate(f"{context}
-
-Plan:
-{state.plan}")
+            state.result = self._llm.generate(f"{context}\n\nPlan:\n{state.plan}")
         state.steps.append("execute")
         trace.event("execution_finished", tool_calls=self._policy.calls_used)
 
