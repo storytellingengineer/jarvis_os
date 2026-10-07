@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
@@ -41,12 +42,17 @@ class SupervisorAgent:
 
     def run(self, context: AgentContext) -> AgentResult:
         task = context.task.lower()
-        if any(term in task for term in ("document", "knowledge", "according to", "from my")):
+        tokens = set(re.findall(r"\b[\w]+\b", task))
+
+        def matches(term: str) -> bool:
+            return term in task if " " in term else term in tokens
+
+        if any(matches(term) for term in ("document", "knowledge", "according to", "from my")):
             route = "knowledge"
-        elif any(term in task for term in ("code", "debug", "implement", "function", "test")):
-            route = "coding"
-        elif any(term in task for term in ("research", "latest", "compare", "find")):
+        elif any(matches(term) for term in ("research", "latest", "compare", "find")):
             route = "research"
+        elif any(matches(term) for term in ("code", "debug", "implement", "function", "test")):
+            route = "coding"
         else:
             route = "general"
         context.route = route
