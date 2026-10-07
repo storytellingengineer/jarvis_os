@@ -2,24 +2,43 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v1.6.0 — Multi-Agent Orchestration Foundation
+## Current milestone: v1.7.0 — Stateful Agent Runtime
 
-JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, and an evolving planner/executor/verifier runtime. The v1.6 milestone introduces a composable multi-agent foundation: a supervisor routes requests to specialist agents, while shared context carries routes, artifacts, and operational events.
+JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, planner/executor/verifier evaluation, and a composable multi-agent runtime.
+
+The v1.7 milestone adds a provider-agnostic runtime lifecycle inspired by modern realtime assistant architectures: a long-lived session can be started, woken, put to sleep, stopped, resumed, and given explicitly injected proactive checks without coupling the core runtime to a specific voice or model provider.
 
 ```text
-User Task
-   ↓
+User / Voice / API
+       ↓
+  JARVIS Runtime
+       │
+       ├── Session lifecycle
+       ├── Wake / Sleep gating
+       ├── Proactive hook
+       │
+       ▼
+Multi-Agent Runtime
+       ↓
 Supervisor / Router
-   ↓
-   ├── Knowledge Agent → Local RAG
-   ├── Coding Agent → Code / Tests
-   ├── Research Agent → Web / Synthesis
-   └── General Agent
-   ↓
-Verifier / Evaluation
-   ↓
-Verified Response + Observability
+       ↓
+Knowledge / Coding / Research / General
+       ↓
+Planner / Executor / Verifier
+       ↓
+Evaluation + Observability
 ```
+
+## v1.7 Stateful Runtime
+
+The lifecycle layer lives in `app/core/runtime.py`.
+
+- **SessionState** stores bounded session metadata and operational events.
+- **JarvisRuntime** provides explicit `start`, `wake`, `sleep`, and `stop` lifecycle controls.
+- Work is accepted only while the runtime is `ready`.
+- Existing multi-agent routing remains the execution backend; the runtime does not duplicate agent logic.
+- Proactive behavior is exposed as an explicit injected hook, keeping background behavior testable and side-effect boundaries clear.
+- The runtime is provider-agnostic, so a future realtime voice implementation can sit above it without changing orchestration primitives.
 
 ## v1.6 Multi-Agent Foundation
 
@@ -29,10 +48,11 @@ The multi-agent primitives live in `app/core/multiagent.py`.
 - **AgentResult** provides a consistent result contract and optional next-agent routing.
 - **SupervisorAgent** performs transparent deterministic routing for knowledge, coding, research, and general requests.
 - **SpecialistAgent** adapts a handler into a registered specialist agent.
+- **VerifierAgent** validates specialist output.
 - **MultiAgentRuntime** executes supervisor routing and invokes the matching specialist when one is registered.
 - Unknown routes are handled safely without executing an unregistered agent.
 
-This is the orchestration foundation, not the final autonomous system. Future milestones will replace simple routing rules with model-assisted planning, add dedicated Knowledge/Coding/Research/Execution agents, and connect verification, memory, approvals, and observability across the workflow.
+This is still an orchestration foundation. Future milestones will replace simple routing rules with model-assisted planning, add dedicated Knowledge/Coding/Research/Execution agents, and connect verification, memory, approvals, voice, and observability across the workflow.
 
 ## v1.5 Agent Evaluation + Failure Recovery
 
@@ -72,32 +92,45 @@ The runtime is implemented in `app/core/agent.py` and models each task as a stat
 - **Verifier** rejects empty or otherwise structurally invalid results and marks successful runs as verified.
 - **Execution budget** remains bounded by the existing per-request tool-call policy.
 
-A developer CLI is available for exercising the runtime directly:
+## Roadmap
 
-```bash
-python -m app.agent_cli
-```
-
-The main conversational CLI continues to use the stable orchestration path while the agent runtime remains separately testable.
-
-## v1.2 RAG
-
-Imported UTF-8 text or Markdown is chunked, embedded with `text-embedding-3-small` by default, stored locally in SQLite, and retrieved through hybrid semantic + SQLite FTS5 keyword ranking. Results include source/chunk citations such as `[notes.md#chunk-2]`.
-
-Import a document:
-
-```bash
-python -m app.knowledge_cli path/to/document.md
-```
-
-Configuration:
-
-```text
-JARVIS_KNOWLEDGE_PATH=data/knowledge.db
-JARVIS_EMBEDDING_MODEL=text-embedding-3-small
-JARVIS_RAG_CHUNK_SIZE=500
-JARVIS_RAG_CHUNK_OVERLAP=75
-```
+- [x] Project foundation
+- [x] LLM provider abstraction
+- [x] OpenAI integration
+- [x] Interactive CLI
+- [x] Conversation history
+- [x] Tool registry and function calling
+- [x] Calculator tool
+- [x] Persistent memory
+- [x] FastAPI service
+- [x] Web interface
+- [x] Tool execution policy
+- [x] Native web research
+- [x] Local personal knowledge retrieval
+- [x] Document chunking
+- [x] Semantic/vector retrieval
+- [x] Hybrid keyword + semantic retrieval
+- [x] Source/chunk citations
+- [x] Agent runtime foundation
+- [x] Planner / executor / verifier state flow
+- [x] Bounded execution budget
+- [x] Structured agent observability
+- [x] Deterministic agent evaluation
+- [x] Bounded agent failure recovery
+- [x] Multi-agent context and agent contract foundation
+- [x] Deterministic supervisor routing
+- [x] Stateful runtime lifecycle
+- [ ] Model-assisted supervisor planning
+- [ ] Dedicated Knowledge, Coding, Research, and Execution agents
+- [ ] Agent-to-agent handoffs and shared memory
+- [ ] Cross-agent verification and evaluation
+- [ ] PDF/DOCX ingestion
+- [ ] Retrieval evaluation suite
+- [ ] Memory 2.0
+- [ ] Realtime voice interface
+- [ ] Wake-word integration
+- [ ] Computer / browser control
+- [ ] Production deployment hardening
 
 ## Setup
 
@@ -134,43 +167,6 @@ Run tests with:
 ```bash
 pytest
 ```
-
-## Roadmap
-
-- [x] Project foundation
-- [x] LLM provider abstraction
-- [x] OpenAI integration
-- [x] Interactive CLI
-- [x] Conversation history
-- [x] Tool registry and function calling
-- [x] Calculator tool
-- [x] Persistent memory
-- [x] FastAPI service
-- [x] Web interface
-- [x] Tool execution policy
-- [x] Native web research
-- [x] Local personal knowledge retrieval
-- [x] Document chunking
-- [x] Semantic/vector retrieval
-- [x] Hybrid keyword + semantic retrieval
-- [x] Source/chunk citations
-- [x] Agent runtime foundation
-- [x] Planner / executor / verifier state flow
-- [x] Bounded execution budget
-- [x] Structured agent observability
-- [x] Deterministic agent evaluation
-- [x] Bounded agent failure recovery
-- [x] Multi-agent context and agent contract foundation
-- [x] Deterministic supervisor routing
-- [ ] Model-assisted supervisor planning
-- [ ] Dedicated Knowledge, Coding, Research, and Execution agents
-- [ ] Agent-to-agent handoffs and shared memory
-- [ ] Cross-agent verification and evaluation
-- [ ] PDF/DOCX ingestion
-- [ ] Retrieval evaluation suite
-- [ ] Memory 2.0
-- [ ] Voice interface
-- [ ] Production deployment hardening
 
 ## Security
 
