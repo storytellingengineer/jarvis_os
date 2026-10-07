@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass(frozen=True)
@@ -32,7 +31,7 @@ class AgentEvaluator:
         )
         return EvaluationResult(
             passed=passed,
-            score=round(score, 3),
+            score=score,
             criteria=criteria,
             reason=reason,
         )
