@@ -17,6 +17,7 @@ def test_runtime_wake_run_and_sleep() -> None:
     assert state.state is RuntimeState.READY
     assert state.turn_count == 1
     assert state.last_task.startswith("research")
+    assert state.last_result == "Research task queued: research the latest AI evaluation approaches"
     assert "runtime:turn_completed" in state.events
     assert "supervisor:routed:research" in state.events
 
