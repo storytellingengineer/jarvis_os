@@ -34,6 +34,7 @@ class SessionState:
     state: RuntimeState = RuntimeState.SLEEPING
     turn_count: int = 0
     last_task: str = ""
+    last_result: str = ""
     events: list[str] = field(default_factory=list)
 
 
@@ -103,6 +104,7 @@ class JarvisRuntime:
 
         try:
             context = self._agent_runtime.run(task)
+            self._session.last_result = context.artifacts.get(context.route, "")
             self._session.events.extend(context.events)
             self._session.events.append("runtime:turn_completed")
             return self._session
