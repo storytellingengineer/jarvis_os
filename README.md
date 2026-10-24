@@ -31,13 +31,16 @@ Evaluation + Observability
 
 ## v1.7 Stateful Runtime
 
-The lifecycle layer lives in `app/core/runtime.py`.
+The lifecycle layer lives in `app/core/runtime.py` and is wired into the HTTP API through `app/api.py`.
 
 - **SessionState** stores bounded session metadata and operational events.
 - **JarvisRuntime** provides explicit `start`, `wake`, `sleep`, and `stop` lifecycle controls.
 - Work is accepted only while the runtime is `ready`.
 - Existing multi-agent routing remains the execution backend; the runtime does not duplicate agent logic.
 - Proactive behavior is exposed as an explicit injected hook, keeping background behavior testable and side-effect boundaries clear.
+- The API starts a stateful desktop session and routes chat requests through the lifecycle runtime and existing guarded orchestrator.
+- `GET /runtime` reports session state; `POST /runtime/wake`, `/runtime/sleep`, and `/runtime/stop` control its lifecycle.
+- `POST /chat` rejects requests while the runtime is sleeping or stopped and returns the specialist result when the session is ready.
 - The runtime is provider-agnostic, so a future realtime voice implementation can sit above it without changing orchestration primitives.
 
 ## v1.6 Multi-Agent Foundation
