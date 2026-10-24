@@ -88,9 +88,17 @@ class AgentRuntime:
                 "Return the final answer only after completing the necessary actions."
             )
             trace.event("execution_started", mode="tools", attempt=state.recovery_attempts + 1)
+            get_schemas = getattr(self._tools, "schemas", None)
+            if callable(get_schemas):
+                tool_schemas = get_schemas()
+            elif isinstance(self._tools, list):
+                # Tests and lightweight callers may pass schema lists directly.
+                tool_schemas = self._tools
+            else:
+                tool_schemas = []
             state.result = generate_with_tools(
                 execution_prompt,
-                self._tools.schemas(),
+                tool_schemas,
                 executor,
             )
         else:
