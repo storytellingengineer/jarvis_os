@@ -24,5 +24,9 @@ documents = [
 jarvis = "app.main:main"
 jarvis-knowledge = "app.knowledge_cli:main"
 
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["static*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
