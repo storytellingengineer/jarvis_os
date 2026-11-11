@@ -2,9 +2,10 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -16,7 +17,10 @@ from app.llm.openai_provider import OpenAIProvider
 from app.tools.calculator import calculate
 from app.tools.knowledge import search_knowledge
 
-app = FastAPI(title="JARVIS OS", version="0.7.0")
+APP_VERSION = "0.8.0"
+MAX_VOICE_UPLOAD_BYTES = 20 * 1024 * 1024
+
+app = FastAPI(title="JARVIS OS", version=APP_VERSION)
 STATIC_INDEX = Path(__file__).resolve().parent.parent / "static" / "index.html"
 MEMORY_PATH = Path(settings.memory_path)
 
@@ -33,6 +37,7 @@ class ChatResponse(BaseModel):
 class JarvisRuntime:
     orchestrator: Orchestrator
     memory: PersistentMemory
+    speech: OpenAIProvider
 
 
 def build_tools() -> ToolRegistry:
@@ -44,12 +49,16 @@ def build_tools() -> ToolRegistry:
 
 def build_runtime() -> JarvisRuntime:
     try:
-        llm = OpenAIProvider(settings)
+        speech = OpenAIProvider(settings)
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
     memory = PersistentMemory(MEMORY_PATH)
     history = ConversationHistory(store=memory)
-    return JarvisRuntime(orchestrator=Orchestrator(llm, history=history, tools=build_tools()), memory=memory)
+    return JarvisRuntime(
+        orchestrator=Orchestrator(speech, history=history, tools=build_tools()),
+        memory=memory,
+        speech=speech,
+    )
 
 
 runtime: JarvisRuntime | None = None
@@ -72,7 +81,7 @@ def index() -> FileResponse:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "jarvis-os", "version": "0.7.0"}
+    return {"status": "ok", "service": "jarvis-os", "version": APP_VERSION}
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -82,6 +91,47 @@ def chat(request: ChatRequest) -> ChatResponse:
         return ChatResponse(response=jarvis.orchestrator.respond(request.message))
     except Exception as exc:
         raise HTTPException(status_code=500, detail="JARVIS could not process the request.") from exc
+
+
+@app.post("/voice/chat", responses={200: {"content": {"audio/mpeg": {}}}})
+def voice_chat(audio: UploadFile = File(...)) -> Response:
+    """Transcribe a voice turn, run it through JARVIS, and return spoken MP3 audio."""
+    if not audio.content_type or not audio.content_type.startswith("audio/"):
+        raise HTTPException(status_code=415, detail="Upload an audio recording.")
+    audio_bytes = audio.file.read(MAX_VOICE_UPLOAD_BYTES + 1)
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="The audio recording is empty.")
+    if len(audio_bytes) > MAX_VOICE_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Audio uploads must be 20 MB or smaller.")
+
+    jarvis = get_runtime()
+    try:
+        transcript = jarvis.speech.transcribe_audio(
+            audio_bytes,
+            filename=audio.filename or "recording.webm",
+            content_type=audio.content_type,
+        ).strip()
+        if not transcript:
+            raise HTTPException(status_code=422, detail="No speech was detected. Try again.")
+        answer = jarvis.orchestrator.respond(transcript)
+        spoken_audio = jarvis.speech.synthesize_speech(answer)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="JARVIS voice processing failed. Check the API configuration and try again.",
+        ) from exc
+
+    return Response(
+        content=spoken_audio,
+        media_type="audio/mpeg",
+        headers={
+            "X-Jarvis-Transcript": quote(transcript, safe=""),
+            "X-Jarvis-Response": quote(answer, safe=""),
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @app.delete("/memory", status_code=204)
