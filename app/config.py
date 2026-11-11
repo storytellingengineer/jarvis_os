@@ -21,6 +21,9 @@ class Settings:
     rag_chunk_size: int = int(os.getenv("JARVIS_RAG_CHUNK_SIZE", "500"))
     rag_chunk_overlap: int = int(os.getenv("JARVIS_RAG_CHUNK_OVERLAP", "75"))
     web_search_enabled: bool = os.getenv("JARVIS_WEB_SEARCH", "true").lower() in {"1", "true", "yes", "on"}
+    stt_model: str = os.getenv("JARVIS_STT_MODEL", "gpt-4o-mini-transcribe")
+    tts_model: str = os.getenv("JARVIS_TTS_MODEL", "gpt-4o-mini-tts")
+    tts_voice: str = os.getenv("JARVIS_TTS_VOICE", "alloy")
 
 
 settings = Settings()
