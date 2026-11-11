@@ -1,4 +1,4 @@
-"""OpenAI Responses API integration."""
+"""OpenAI Responses API and audio integration."""
 
 import json
 from collections.abc import Callable
@@ -10,7 +10,7 @@ from app.config import Settings
 
 
 class OpenAIProvider:
-    """Generate responses using an OpenAI model."""
+    """Generate text and speech using OpenAI models."""
 
     def __init__(self, settings: Settings) -> None:
         if not settings.llm_api_key:
@@ -21,6 +21,9 @@ class OpenAIProvider:
         self._client = OpenAI(api_key=settings.llm_api_key)
         self._model = settings.llm_model
         self._web_search_enabled = settings.web_search_enabled
+        self._stt_model = settings.stt_model
+        self._tts_model = settings.tts_model
+        self._tts_voice = settings.tts_voice
 
     def generate(self, prompt: str) -> str:
         response = self._client.responses.create(
@@ -28,6 +31,31 @@ class OpenAIProvider:
             input=prompt,
         )
         return response.output_text
+
+    def transcribe_audio(
+        self,
+        audio_bytes: bytes,
+        filename: str = "recording.webm",
+        content_type: str = "audio/webm",
+    ) -> str:
+        """Convert an uploaded audio recording into text."""
+        result = self._client.audio.transcriptions.create(
+            model=self._stt_model,
+            file=(filename, audio_bytes, content_type),
+        )
+        return result.text
+
+    def synthesize_speech(self, text: str) -> bytes:
+        """Convert JARVIS text into an MP3 voice response."""
+        if not text.strip():
+            raise ValueError("Speech text must not be empty")
+        result = self._client.audio.speech.create(
+            model=self._tts_model,
+            voice=self._tts_voice,
+            input=text,
+            response_format="mp3",
+        )
+        return result.content
 
     def generate_with_tools(
         self,
