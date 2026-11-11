@@ -14,17 +14,20 @@
     .status { color: #8b949e; font-size: 13px; }
     .status::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3fb950; margin-right: 7px; }
     #chat { min-height: 62vh; border: 1px solid #30363d; border-radius: 12px; padding: 18px; background: #161b22; overflow-y: auto; }
-    .message { max-width: 78%; margin: 0 0 16px; padding: 11px 13px; border-radius: 10px; white-space: pre-wrap; line-height: 1.5; }
+    .message { max-width: 78%; margin: 0 0 16px; padding: 11px 13px; border-radius: 10px; white-space: pre-wrap; line-height: 1.5; overflow-wrap: anywhere; }
     .user { margin-left: auto; background: #21262d; border: 1px solid #30363d; }
     .jarvis { background: transparent; color: #c9d1d9; }
     .label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .08em; }
     form { display: flex; gap: 10px; margin-top: 12px; }
     input { flex: 1; min-width: 0; border: 1px solid #30363d; border-radius: 9px; background: #0d1117; color: #e6edf3; padding: 13px 14px; outline: none; }
     input:focus { border-color: #58a6ff; }
-    button { border: 1px solid #30363d; border-radius: 9px; background: #21262d; color: #e6edf3; padding: 0 18px; cursor: pointer; }
+    button { border: 1px solid #30363d; border-radius: 9px; background: #21262d; color: #e6edf3; padding: 0 18px; min-height: 44px; cursor: pointer; }
     button:hover { background: #30363d; }
     button:disabled { opacity: .55; cursor: wait; }
-    .hint { color: #6e7681; font-size: 12px; margin-top: 10px; }
+    #voice.recording { border-color: #f85149; color: #ff7b72; }
+    .hint { color: #6e7681; font-size: 12px; margin-top: 10px; line-height: 1.5; }
+    #player { display: none; width: 100%; margin-top: 12px; }
+    @media (max-width: 560px) { main { padding: 18px 12px 24px; } #chat { min-height: 58vh; } .message { max-width: 92%; } form { flex-wrap: wrap; } form input { flex-basis: 100%; } form button { flex: 1; } }
   </style>
 </head>
 <body>
@@ -35,17 +38,25 @@
     </header>
     <section id="chat" aria-live="polite"></section>
     <form id="form">
-      <input id="message" autocomplete="off" placeholder="Talk to JARVIS..." required maxlength="10000" />
+      <input id="message" autocomplete="off" placeholder="Message JARVIS..." required maxlength="10000" />
       <button id="send" type="submit">Send</button>
+      <button id="voice" type="button" aria-pressed="false">🎙 Start voice</button>
     </form>
-    <div class="hint">Personal interface · v0.8 · Conversation is held by the current API process.</div>
+    <audio id="player" controls></audio>
+    <div class="hint">Voice v1 uses push-to-talk: record → speech-to-text → JARVIS → spoken MP3 reply. Microphone permission is required. Audio is processed by the configured OpenAI API and is not stored by this interface.</div>
   </main>
   <script>
     const chat = document.getElementById('chat');
     const form = document.getElementById('form');
     const input = document.getElementById('message');
     const send = document.getElementById('send');
+    const voice = document.getElementById('voice');
     const status = document.getElementById('status');
+    const player = document.getElementById('player');
+    let recorder = null;
+    let stream = null;
+    let chunks = [];
+    let busy = false;
 
     function addMessage(role, text) {
       const el = document.createElement('div');
@@ -58,15 +69,17 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const message = input.value.trim();
-      if (!message) return;
+    function setBusy(value, message) {
+      busy = value;
+      send.disabled = value;
+      input.disabled = value;
+      voice.disabled = value;
+      status.textContent = message;
+    }
+
+    async function sendText(message) {
       addMessage('user', message);
-      input.value = '';
-      input.focus();
-      send.disabled = true;
-      status.textContent = 'thinking';
+      setBusy(true, 'thinking');
       try {
         const response = await fetch('/chat', {
           method: 'POST',
@@ -81,11 +94,100 @@
         addMessage('jarvis', `Error: ${error.message}`);
         status.textContent = 'error';
       } finally {
-        send.disabled = false;
+        setBusy(false, status.textContent);
+      }
+    }
+
+    async function sendVoice(blob) {
+      setBusy(true, 'listening processed · thinking · speaking');
+      try {
+        const formData = new FormData();
+        const extension = blob.type.includes('mp4') ? 'm4a' : 'webm';
+        formData.append('audio', blob, `jarvis-recording.${extension}`);
+        const response = await fetch('/voice/chat', { method: 'POST', body: formData });
+        if (!response.ok) {
+          let detail = 'Voice request failed';
+          try { detail = (await response.json()).detail || detail; } catch (_) {}
+          throw new Error(detail);
+        }
+        const transcript = decodeURIComponent(response.headers.get('X-Jarvis-Transcript') || '');
+        const answer = decodeURIComponent(response.headers.get('X-Jarvis-Response') || '');
+        addMessage('user', transcript || '[Voice message]');
+        addMessage('jarvis', answer || '[Spoken response ready]');
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        player.src = audioUrl;
+        player.style.display = 'block';
+        player.onended = () => URL.revokeObjectURL(audioUrl);
+        try { await player.play(); } catch (_) { status.textContent = 'response ready · tap play'; }
+      } catch (error) {
+        addMessage('jarvis', `Voice error: ${error.message}`);
+        status.textContent = 'error';
+      } finally {
+        setBusy(false, status.textContent === 'error' ? 'error' : 'ready');
+      }
+    }
+
+    async function startRecording() {
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+        addMessage('jarvis', 'Voice recording is not supported in this browser. Try a current Chrome or Edge browser over HTTPS or localhost.');
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+          .find(type => MediaRecorder.isTypeSupported(type));
+        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        chunks = [];
+        recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+        recorder.onerror = () => {
+          stream?.getTracks().forEach(track => track.stop());
+          stream = null;
+          voice.classList.remove('recording');
+          voice.textContent = '🎙 Start voice';
+          voice.setAttribute('aria-pressed', 'false');
+          setBusy(false, 'error');
+        };
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+          stream?.getTracks().forEach(track => track.stop());
+          stream = null;
+          voice.classList.remove('recording');
+          voice.textContent = '🎙 Start voice';
+          voice.setAttribute('aria-pressed', 'false');
+          if (blob.size) await sendVoice(blob);
+        };
+        recorder.start();
+        voice.classList.add('recording');
+        voice.textContent = '■ Stop & send';
+        voice.setAttribute('aria-pressed', 'true');
+        status.textContent = 'recording · tap stop when finished';
+      } catch (error) {
+        addMessage('jarvis', `Microphone error: ${error.message}. Allow microphone access and try again.`);
+        status.textContent = 'microphone unavailable';
+      }
+    }
+
+    voice.addEventListener('click', () => {
+      if (recorder?.state === 'recording') {
+        recorder.stop();
+        voice.disabled = true;
+        status.textContent = 'processing voice';
+      } else if (!busy) {
+        startRecording();
       }
     });
 
-    addMessage('jarvis', 'Online. What would you like me to do?');
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const message = input.value.trim();
+      if (!message || busy) return;
+      input.value = '';
+      await sendText(message);
+      input.focus();
+    });
+
+    addMessage('jarvis', 'Online. Type a message or tap Start voice to speak.');
   </script>
 </body>
 </html>
