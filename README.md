@@ -2,34 +2,33 @@
 
 A personal AI operating system built incrementally as a real software project.
 
-## Current milestone: v1.7.0 — Stateful Agent Runtime
+## Current milestone: v1.8.0 — Push-to-talk Voice
 
-JARVIS combines persistent memory, guarded tools, native web search, hybrid local RAG, planner/executor/verifier evaluation, and a composable multi-agent runtime.
-
-The v1.7 milestone adds a provider-agnostic runtime lifecycle inspired by modern realtime assistant architectures: a long-lived session can be started, woken, put to sleep, stopped, resumed, and given explicitly injected proactive checks without coupling the core runtime to a specific voice or model provider.
+JARVIS now supports a complete push-to-talk voice turn in the web interface:
 
 ```text
-User / Voice / API
+Microphone recording
        ↓
-  JARVIS Runtime
-       │
-       ├── Session lifecycle
-       ├── Wake / Sleep gating
-       ├── Proactive hook
-       │
-       ▼
-Multi-Agent Runtime
+OpenAI speech-to-text
        ↓
-Supervisor / Router
+Existing JARVIS orchestrator + conversation memory + tools
        ↓
-Knowledge / Coding / Research / General
+OpenAI text-to-speech
        ↓
-Planner / Executor / Verifier
-       ↓
-Evaluation + Observability
+MP3 playback in the browser
 ```
 
-## v1.7 Stateful Runtime
+- Tap **Start voice**, speak, then tap **Stop & send**.
+- The browser uploads an audio recording to `POST /voice/chat`.
+- JARVIS transcribes the recording, processes the transcript through the existing orchestrator, and returns spoken MP3 audio.
+- The transcript and answer are returned in URL-encoded response headers for display in the chat.
+- Audio uploads are limited to 20 MB and must use an audio content type.
+- Audio is processed through the configured OpenAI API; this interface does not persist recordings.
+- Voice models and voice are configurable with `JARVIS_STT_MODEL`, `JARVIS_TTS_MODEL`, and `JARVIS_TTS_VOICE`.
+
+This is push-to-talk, not always-on listening. Wake-word detection and streaming/low-latency realtime conversation remain future milestones.
+
+## v1.7 Stateful Agent Runtime
 
 The lifecycle layer lives in `app/core/runtime.py`.
 
@@ -38,7 +37,7 @@ The lifecycle layer lives in `app/core/runtime.py`.
 - Work is accepted only while the runtime is `ready`.
 - Existing multi-agent routing remains the execution backend; the runtime does not duplicate agent logic.
 - Proactive behavior is exposed as an explicit injected hook, keeping background behavior testable and side-effect boundaries clear.
-- The runtime is provider-agnostic, so a future realtime voice implementation can sit above it without changing orchestration primitives.
+- The runtime is provider-agnostic, so voice can sit above it without changing orchestration primitives.
 
 ## v1.6 Multi-Agent Foundation
 
@@ -120,6 +119,7 @@ The runtime is implemented in `app/core/agent.py` and models each task as a stat
 - [x] Multi-agent context and agent contract foundation
 - [x] Deterministic supervisor routing
 - [x] Stateful runtime lifecycle
+- [x] Push-to-talk voice interface (speech-to-text → JARVIS → text-to-speech)
 - [ ] Model-assisted supervisor planning
 - [ ] Dedicated Knowledge, Coding, Research, and Execution agents
 - [ ] Agent-to-agent handoffs and shared memory
@@ -127,8 +127,8 @@ The runtime is implemented in `app/core/agent.py` and models each task as a stat
 - [ ] PDF/DOCX ingestion
 - [ ] Retrieval evaluation suite
 - [ ] Memory 2.0
-- [ ] Realtime voice interface
 - [ ] Wake-word integration
+- [ ] Realtime streaming voice interface
 - [ ] Computer / browser control
 - [ ] Production deployment hardening
 
@@ -143,6 +143,8 @@ pip install -e .
 ```
 
 Create `.env` from `.env.example` and set `LLM_API_KEY`.
+
+Voice defaults are set in `.env.example`; override them in your local `.env` if needed.
 
 Run the main CLI:
 
@@ -161,6 +163,8 @@ Or run the API:
 ```bash
 uvicorn app.api:app --reload
 ```
+
+Open `http://127.0.0.1:8000`, allow microphone access, and use **Start voice** / **Stop & send**.
 
 Run tests with:
 
