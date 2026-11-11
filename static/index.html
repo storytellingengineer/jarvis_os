@@ -156,6 +156,7 @@
           voice.textContent = '🎙 Start voice';
           voice.setAttribute('aria-pressed', 'false');
           if (blob.size) await sendVoice(blob);
+          else setBusy(false, 'ready');
         };
         recorder.start();
         voice.classList.add('recording');
